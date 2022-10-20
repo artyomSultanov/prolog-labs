@@ -247,26 +247,21 @@ myDelMap([[H, _] | T], [H | T1]) :-
 	myDelMap(T, T1).
 % makePath восстанавливает путь начиная с конца
 makePath(Visited, CurPos, 0, Path, KingPath) :- memberchk([X, 0], Visited), trueMoveChess(X, CurPos), [X | Path] = KingPath.
-makePath(Visited, CurPos, CurVal, ListOfPawns, ListOfAttackedFields, Path, KingPath) :-
+makePath(Visited, CurPos, CurVal, Path, KingPath) :-
 	member([P, CurVal], Visited),
 	trueMoveChess(P, CurPos),
-	(memberchk(P, ListOfAttackedFields), \+ memberchk(P, ListOfPawns )-> 
-		moveChess(P, WaysFromAttackedFields), 
-		deletePos(ListOfPawns, WaysFromAttackedFields, NewListOfPawns),
-		CurVal1 is CurVal - 1,
-		makePath(Visited, P, CurVal1, NewListOfPawns, ListOfAttackedFields, [P | Path], KingPath);
-		CurVal1 is CurVal - 1,
-		makePath(Visited, P, CurVal1, ListOfPawns, ListOfAttackedFields, [P | Path], KingPath)).
+	CurVal1 is CurVal - 1,
+	makePath(Visited, P, CurVal1, [P | Path], KingPath).
 % bfs2 отличается от bfs лишь тем, что тут добавлен предикат, восстанавливающий путь,
 % свободным считается уже сам путь ?KingPath и изменён вид хранения посещённых мест Visited,
 % где теперь вместе с позицией лежит номер фронта
-bfs2([[Goal, Res] | _], Visited, _, _, ConstListOfPawns, ConstListOfAttackedFields, Goal, KingPath) :- 
+bfs2([[Goal, Res] | _], Visited, _, _, [Goal, Res], KingPath) :- 
 	Res1 is Res - 1,
-	makePath(Visited, Goal, Res1, ConstListOfPawns, ConstListOfAttackedFields, [Goal], KingPath).
-bfs2(Queue, Visited, ListOfPawns, ListOfAttackedFields, ConstListOfPawns, ConstListOfAttackedFields, Goal, KingPath) :-
+	makePath(Visited, Goal, Res1, [Goal], KingPath).
+bfs2(Queue, Visited, ListOfPawns, ListOfAttackedFields, [Goal, Res], KingPath) :-
 	Queue \= [],
 	Queue = [[P, N] | TailQueue], P \= Goal,
-	(memberchk([P, _], Visited) -> bfs2(TailQueue, Visited, ListOfPawns, ListOfAttackedFields, ConstListOfPawns, ConstListOfAttackedFields, Goal, KingPath); % пропускаем посещённые поля
+	(memberchk([P, _], Visited) -> bfs2(TailQueue, Visited, ListOfPawns, ListOfAttackedFields, [Goal, Res], KingPath); % пропускаем посещённые поля
 		(moveChess(P, NewWays), % ищем все ходы короля
 		deletePos(NewWays, ListOfAttackedFields, WaysWithoutAttackedFields), % убираем из этих ходов битые пешками поля
 		myDelMap(Visited, PosVisited), % убираем фронты у посещённых полей
@@ -277,12 +272,12 @@ bfs2(Queue, Visited, ListOfPawns, ListOfAttackedFields, ConstListOfPawns, ConstL
 		incFront(TrueWays, N1, NewFront), % увеличиваем значение следующего фронта
 		addLast(Visited, [P, N], NewVisited), % добавляем текущее поле в список посещённых
 		append(TailQueue, NewFront, NewQueue), % добавляем в очередь наш новый фронт
-		bfs2(NewQueue, NewVisited, WaysWithNotAttackedPawns, ListOfAttackedFieldsByNotAttackedPawns, ConstListOfPawns, ConstListOfAttackedFields, Goal, KingPath))).
+		bfs2(NewQueue, NewVisited, WaysWithNotAttackedPawns, ListOfAttackedFieldsByNotAttackedPawns, [Goal, Res], KingPath))).
 king_path2(ListOfPawns, KingPath) :-
 	Start = a-8,
 	End = h-1,
 	attackedByPawns(ListOfPawns, ListOfAttackedFields), % создаём список полей, которые бьют пешки
-	bfs2([[Start, 0]], [], ListOfPawns, ListOfAttackedFields, ListOfPawns, ListOfAttackedFields, End, KingPath).
+	bfs2([[Start, 0]], [], ListOfPawns, ListOfAttackedFields, [End, _], KingPath).
 % task 5 c
 attackedByPawns([], []).
 attackedByPawns([H | T], Fields) :-
@@ -291,26 +286,17 @@ attackedByPawns([H | T], Fields) :-
 	N2 is N - 1, 
 	H = _-Row,
 	RowNew is Row - 1,
-	((N > 1, N < 8 -> 
+	((N > 1, N < 8, Fields = [H1, H2 | Tn] -> 
 		pos(ColNew1-_, N2),
 		pos(ColNew2-_, N1), 
 		H1 = ColNew1-RowNew, 
 		H2 = ColNew2-RowNew, 
-		attackedByPawns(T, Tn),
-		Fields = [H1, H2 | Tn]);
-	(N = 1 -> 
+		attackedByPawns(T, Tn));
+	(N = 1, Fields = [H1 | Tn] -> 
 		pos(ColNew-_, N1),  
 		H1 = ColNew-RowNew,
-		attackedByPawns(T, Tn),
-		Fields = [H1 | Tn]);
-	(N = 8 -> 
+		attackedByPawns(T, Tn));
+	(N = 8, Fields = [H1 | Tn] -> 
 		pos(ColNew-_, N2),
 		H1 = ColNew-RowNew, 
-		attackedByPawns(T, Tn),
-		Fields = [H1 | Tn])).
-
-
-
-
-
-% task 6
+		attackedByPawns(T, Tn))).
